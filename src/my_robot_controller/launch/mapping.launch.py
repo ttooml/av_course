@@ -1,27 +1,23 @@
-from launch_ros.substitutions import FindPackageShare
-
 from launch import LaunchDescription
+from launch_ros.actions import Node
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution, TextSubstitution
-from launch_ros.actions import Node
-
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
-    colors = {
-        'background_r': '200'
-    }
-
     return LaunchDescription([
+        # Launch TurtleBot3 Simulation
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([
                 PathJoinSubstitution([
-                    FindPackageShare('turtlebot3_gazebo'),
+                    FindPackageShare('my_robot_controller'),
                     'launch',
-                    'av_course.launch.py'
+                    'my_turtlebot3.launch.py'
                 ])
             ]),
         ),
+        # Launch SLAM
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([
                 PathJoinSubstitution([
@@ -30,17 +26,12 @@ def generate_launch_description():
                     'cartographer.launch.py'
                 ])
             ]),
-            launch_arguments={
-                'use_sim_time:': 'True',
-                'use_provided_red': 'True',
-                'new_background_r': TextSubstitution(text=str(colors['background_r']))
-            }.items()
+            launch_arguments={'use_sim_time': 'True'}.items(),
         ),
+        # Launch Autonomous Mapping Node
         Node(
             package='my_robot_controller',
-            namespace='mapping',
             executable='mapping',
-            name='sim_mapping'
-        ),
-
-])
+            name='control'
+        )
+    ])
