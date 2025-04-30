@@ -5,22 +5,19 @@ from rclpy.node import Node
 
 class MyNode(Node):
     def __init__(self):
-        super().__init__("first_node")
+        super().__init__("first_node")  # Node name
         self._counter = 0
+        self.create_timer(1, self.timer_callback)
 
-        self.create_timer(1 ,self.timer_callback)
-        
     def timer_callback(self):
-       self.get_logger().info("he25123" + str(self._counter))
-       self._counter += 1
+        self.get_logger().info(f"Hello {self._counter}")
+        self._counter += 1
 
-
-
-def main(arg=None):
-    rclpy.init(args=arg)
+def main(args=None):
+    rclpy.init(args=args)
     node = MyNode()
-    rclpy.spin(node)
+    rclpy.spin(node)  # Keep the node alive
     rclpy.shutdown()
-    pass
+
 if __name__ == '__main__':
     main()

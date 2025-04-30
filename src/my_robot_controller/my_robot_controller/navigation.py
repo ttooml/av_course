@@ -1,136 +1,102 @@
 #!/usr/bin/env python3
 
-
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 import tf_transformations
-import time
 import math
-
-
+import time
 
 class TurtleNavigationNode(Node):
-  
-   def __init__(self):
-       super().__init__("navigation")
-       self.get_logger().info("our navigation is started")
-       self.goal_poses = [] # List to store goal poses
-       self.current_goal_index = 0
-      
-       self.initial_pose_publisher = self.create_publisher(
-           PoseWithCovarianceStamped, "/initialpose", 10)
-      
-       self.goal_pose_publisher = self.create_publisher(
-           PoseStamped, "/goal_pose", 10)
-      
-       self.odom_listener = self.create_subscription(
-           Odometry, "/odom", self.odom_callback, 10)
-      
-       ############# [Initial Location] ############
-       initial_pose = PoseWithCovarianceStamped()
-       initial_pose.header.frame_id = 'map'
-       initial_pose.pose.pose.position.x = 0.0
-       initial_pose.pose.pose.position.y = 0.0
-              
-       qq = tf_transformations.quaternion_from_euler(0,0,0)# x, y, z or Roll Pitch Yaw
-       initial_pose.pose.pose.orientation.x = qq[0]
-       initial_pose.pose.pose.orientation.y = qq[1]
-       initial_pose.pose.pose.orientation.z = qq[2]
-       initial_pose.pose.pose.orientation.w = qq[3]
-       self.initial_pose_publisher.publish(initial_pose)
-       #################################
-       # time.sleep(1)
-       # ############# [Destination] ############
-       # goal = PoseStamped()
-       # goal.header.frame_id = 'map'
-       # goal.pose.position.x = 3.5
-       # goal.pose.position.y = 0.0
-       # qq = tf_transformations.quaternion_from_euler(0,0,1.57)# x, y, z or Roll Pitch Yaw
-       # goal.pose.orientation.x = qq[0]
-       # goal.pose.orientation.y = qq[1]
-       # goal.pose.orientation.z = qq[2]
-       # goal.pose.orientation.w = qq[3]
-       # self.goal_pose_publisher.publish(goal)
-      
-      
-       # Initialize goal poses as dictionaries {x, y, w}
-       self.x_home = 0.0
-       self.y_home = 0.0
+    def __init__(self):
+        super().__init__("navigation")
+        self.get_logger().info("Navigation Node started")
 
-       self.goal_poses.append({'x': -0.9, 'y': -1.7, 'yaw': -30}) 
-       self.goal_poses.append({'x': -2.4, 'y': 2.4, 'yaw': 20}) 
-       self.goal_poses.append({'x': -4.9, 'y': 0.5 ,'yaw': 40})
-       self.goal_poses.append({'x': -8.3, 'y': -1.4, 'yaw': 0})
-
-    
-      
-      
-       time.sleep(5)
-       self.publish_goal()
-      
-      
-      
-   def odom_callback(self, msg: Odometry):
-       # Check if current goal pose is reached
-       current_pose = msg.pose.pose
-       goal_pose = self.goal_poses[self.current_goal_index]
-       distance_to_goal = (((current_pose.position.x - self.x_home) - goal_pose['x']) ** 2 +
-                           ((current_pose.position.y - self.y_home) - goal_pose['y']) ** 2) ** 0.5
-       if distance_to_goal < 0.3:  # You can adjust this threshold
-           print(distance_to_goal)
-           self.publish_next_goal()
-          
-   def publish_next_goal(self):
-       # Check if there are more goals to explore
-       if self.current_goal_index < len(self.goal_poses) - 1:
-           self.current_goal_index += 1
-           self.publish_goal()
-          
-       else:
-           self.get_logger().info("All goals explored!")
-           self.stop()
+        self.goal_poses = [  # Define goal positions and orientations
+           {'x': -2.36, 'y': -3.47, 'yaw': -30},
+           {'x': -2.9, 'y': -0.8, 'yaw': 60},
+           {'x': -5.6, 'y': -3.3, 'yaw': 0},
+           {'x': -7.8, 'y': -0.72, 'yaw': 90}
+       ]
 
 
-   def publish_goal(self):
-            pose_msg = PoseStamped()
-            pose_msg.pose.position.x = self.goal_poses[self.current_goal_index]['x']
-            pose_msg.pose.position.y = self.goal_poses[self.current_goal_index]['y']
-            yaw_angle = self.goal_poses[self.current_goal_index]['yaw']*math.pi/180
-            qq = tf_transformations.quaternion_from_euler(0,0,0)# x, y, z or Roll Pitch Yaw
-            pose_msg.pose.orientation.x = qq[0]
-            pose_msg.pose.orientation.y = qq[1]
-            pose_msg.pose.orientation.z = qq[2]
-            pose_msg.pose.orientation.w = qq[3]
-            pose_msg.header.frame_id = 'map'
-            self.goal_pose_publisher.publish(pose_msg)
-            self.get_logger().info("Published goal: {}".format(self.current_goal_index))
+        self.current_goal_index = 0
 
+        # Publishers
+        self.initial_pose_publisher = self.create_publisher(
+            PoseWithCovarianceStamped, "/initialpose", 10)
+        self.goal_pose_publisher = self.create_publisher(
+            PoseStamped, "/goal_pose", 10)
 
-   def stop(self):
-       self.get_logger().info("stopping the node")
-       # self.destroy_node()
-       rclpy.shutdown()
-       raise KeyboardInterrupt
-          
+        # Subscriber
+        self.odom_listener = self.create_subscription(
+            Odometry, "/odom", self.odom_callback, 5)
 
+        # Publish the initial pose
+        time.sleep(5) # wait to let the simulation and turtlebot navigation to being loaded.
+        self.publish_initial_pose()
+        time.sleep(5)
+        self.publish_goal()
 
+    def publish_initial_pose(self):
+        initial_pose = PoseWithCovarianceStamped()
+        initial_pose.header.frame_id = 'map'
+        initial_pose.pose.pose.position.x = 0.0
+        initial_pose.pose.pose.position.y = 0.0
 
+        quaternion = tf_transformations.quaternion_from_euler(0, 0, 0)
+        initial_pose.pose.pose.orientation.x = quaternion[0]
+        initial_pose.pose.pose.orientation.y = quaternion[1]
+        initial_pose.pose.pose.orientation.z = quaternion[2]
+        initial_pose.pose.pose.orientation.w = quaternion[3]
+
+        self.initial_pose_publisher.publish(initial_pose)
+
+    def odom_callback(self, msg: Odometry):
+        current_pose = msg.pose.pose
+        goal_pose = self.goal_poses[self.current_goal_index]
+
+        distance_to_goal = math.sqrt(
+            (current_pose.position.x - goal_pose['x']) ** 2 +
+            (current_pose.position.y - goal_pose['y']) ** 2
+        )
+
+        if distance_to_goal < 0.3:  # Threshold to consider the goal reached
+            self.publish_next_goal()
+
+    def publish_next_goal(self):
+        if self.current_goal_index < len(self.goal_poses) - 1:
+            self.current_goal_index += 1
+            self.publish_goal()
+        else:
+            self.get_logger().info("All goals reached!")
+            rclpy.shutdown()
+
+    def publish_goal(self):
+        
+        goal = self.goal_poses[self.current_goal_index]
+        pose_msg = PoseStamped()
+        pose_msg.header.frame_id = 'map'
+        pose_msg.pose.position.x = goal['x']
+        pose_msg.pose.position.y = goal['y']
+
+        quaternion = tf_transformations.quaternion_from_euler(0, 0, math.radians(goal['yaw']))
+        pose_msg.pose.orientation.x = quaternion[0]
+        pose_msg.pose.orientation.y = quaternion[1]
+        pose_msg.pose.orientation.z = quaternion[2]
+        pose_msg.pose.orientation.w = quaternion[3]
+
+        time.sleep(0.5)
+        self.goal_pose_publisher.publish(pose_msg)
+        self.get_logger().info(f"Published goal {self.current_goal_index + 1}")
 
 def main(args=None):
-   rclpy.init(args=args)
-   node = TurtleNavigationNode()
-
-
-   try:
-       rclpy.spin(node)
-   except (KeyboardInterrupt):
-       node.destroy_node()
-       rclpy.shutdown()
-  
-  
-
-
-if __name__ == '__main__':
-   main()
+    rclpy.init(args=args)
+    node = TurtleNavigationNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.get_logger().info("Navigation Node stopped")
+    finally:
+        rclpy.shutdown()
